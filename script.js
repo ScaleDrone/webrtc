@@ -10,11 +10,17 @@ const drone = new ScaleDrone('63o6Zfoz6yeAcJDG');
 const roomName = 'observable-' + roomHash;
 const configuration = {
   iceServers: [{
-    url: 'stun:stun.l.google.com:19302'
+    urls: 'stun:stun.l.google.com:19302'
   }]
 };
 let room;
 let pc;
+
+
+function onSuccess() {};
+function onError(error) {
+  console.error(error);
+};
 
 drone.on('open', error => {
   if (error) {
@@ -24,7 +30,7 @@ drone.on('open', error => {
   room.on('open', error => {
     console.log('Open');
     if (error) {
-      console.error(error);
+      onError(error);
     }
   });
   // We're connected to the room and received an array of 'members'
@@ -59,24 +65,26 @@ function startWebRTC(isOfferer) {
   // If user is offerer let the 'negotiationneeded' event create the offer
   if (isOfferer) {
     pc.onnegotiationneeded = () => {
-      pc.createOffer(localDescCreated, error => console.error(error));
+      pc.createOffer(localDescCreated, onError);
     }
   }
 
   // When a remote stream arrives display it in the #remoteVideo element
-  pc.onaddstream = event => {
-    remoteVideo.src = URL.createObjectURL(event.stream);
-  };
+  pc.ontrack = event => {
+    console.log('Their stream', event.streams[0]);
+    remoteVideo.srcObject = event.streams[0];
+  }
 
-  navigator.getUserMedia({
+  navigator.mediaDevices.getUserMedia({
     audio: true,
     video: true,
-  }, stream => {
+  }).then(stream => {
     // Display your local video in #localVideo element
-    localVideo.src = URL.createObjectURL(stream);
+    localVideo.srcObject = stream;
+    console.log('My stream', stream);
     // Add your stream to be sent to the conneting peer
-    pc.addStream(stream);
-  }, error => console.error(error));
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+  }, onError);
 
   // Listen to signaling data from Scaledrone
   room.on('data', (message, client) => {
@@ -90,12 +98,14 @@ function startWebRTC(isOfferer) {
       pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
         // When receiving an offer lets answer it
         if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer(localDescCreated, error => console.error(error));
+          pc.createAnswer(localDescCreated, onError);
         }
-      }, error => console.error(error));
+      }, onError);
     } else if (message.candidate) {
       // Add the new ICE candidate to our connections remote description
-      pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+      pc.addIceCandidate(
+        new RTCIceCandidate(message.candidate), onSuccess, onError
+      );
     }
   });
 }
@@ -104,6 +114,6 @@ function localDescCreated(desc) {
   pc.setLocalDescription(
     desc,
     () => sendMessage({'sdp': pc.localDescription}),
-    error => console.error(error)
+    onError
   );
 }
