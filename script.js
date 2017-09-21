@@ -28,7 +28,6 @@ drone.on('open', error => {
   }
   room = drone.subscribe(roomName);
   room.on('open', error => {
-    console.log('Open');
     if (error) {
       onError(error);
     }
@@ -65,7 +64,7 @@ function startWebRTC(isOfferer) {
   // If user is offerer let the 'negotiationneeded' event create the offer
   if (isOfferer) {
     pc.onnegotiationneeded = () => {
-      pc.createOffer(localDescCreated, onError);
+      pc.createOffer().then(localDescCreated).catch(onError);
     }
   }
 
@@ -86,17 +85,17 @@ function startWebRTC(isOfferer) {
 
   // Listen to signaling data from Scaledrone
   room.on('data', (message, client) => {
-    console.log('CLIENT', client);
     // Message was sent by us
     if (client.id === drone.clientId) {
       return;
     }
+
     if (message.sdp) {
       // This is called after receiving an offer or answer from another peer
       pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
         // When receiving an offer lets answer it
         if (pc.remoteDescription.type === 'offer') {
-          pc.createAnswer(localDescCreated, onError);
+          pc.createAnswer().then(localDescCreated).catch(onError);
         }
       }, onError);
     } else if (message.candidate) {
