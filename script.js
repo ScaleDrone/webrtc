@@ -80,12 +80,10 @@ function startWebRTC(isOfferer) {
     audio: true,
     video: true,
   }).then(stream => {
-    setTimeout(() => {
-      // Display your local video in #localVideo element
-      localVideo.srcObject = stream;
-      // Add your stream to be sent to the conneting peer
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));      
-    }, 100);
+    // Display your local video in #localVideo element
+    localVideo.srcObject = stream;
+    // Add your stream to be sent to the conneting peer
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
   }, onError);
 
   // Listen to signaling data from Scaledrone
